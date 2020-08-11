@@ -9,5 +9,6 @@ if (project.hasProperty("RELEASE_STORE_FILE")) {
         }
     }
     android.buildTypes.release.signingConfig = android.signingConfigs.release
+    android.buildTypes.debug.signingConfig = android.signingConfigs.release
 }
 

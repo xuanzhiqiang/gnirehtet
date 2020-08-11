@@ -18,6 +18,8 @@ package com.genymobile.gnirehtet;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.hardware.usb.UsbManager;
 import android.net.ConnectivityManager;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
@@ -43,7 +45,7 @@ public class GnirehtetService extends VpnService {
 
     private static final String TAG = GnirehtetService.class.getSimpleName();
 
-    private static final InetAddress VPN_ADDRESS = Net.toInetAddress(new byte[] {10, 0, 0, 2});
+    private static final InetAddress VPN_ADDRESS = Net.toInetAddress(new byte[]{10, 0, 0, 2});
     // magic value: higher (like 0x8000 or 0xffff) or lower (like 1500) values show poorer performances
     private static final int MTU = 0x4000;
 
@@ -78,8 +80,22 @@ public class GnirehtetService extends VpnService {
         return intent;
     }
 
+    private USBReceiver usbReceiver = null;
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public int onStartCommand(final Intent intent, int flags, int startId) {
+
+        if (usbReceiver == null) {
+            USBReceiver.register(this, new USBReceiver.Callback() {
+                @Override
+                public void usbChange(boolean state) {
+                    if (!state) {
+                        close();
+                    }
+                }
+            });
+            Log.i("USBReceiver", "registerReceiver USBReceiver");
+        }
+
         String action = intent.getAction();
         Log.d(TAG, "Received request " + action);
         if (ACTION_START_VPN.equals(action)) {
@@ -96,6 +112,16 @@ public class GnirehtetService extends VpnService {
             close();
         }
         return START_NOT_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (usbReceiver != null) {
+            USBReceiver.unRegister(this, usbReceiver);
+            usbReceiver = null;
+            Log.i("USBReceiver", "unregisterReceiver USBReceiver");
+        }
     }
 
     private boolean isRunning() {
@@ -157,7 +183,7 @@ public class GnirehtetService extends VpnService {
             Network vpnNetwork = findVpnNetwork();
             if (vpnNetwork != null) {
                 // so that applications knows that network is available
-                setUnderlyingNetworks(new Network[] {vpnNetwork});
+                setUnderlyingNetworks(new Network[]{vpnNetwork});
             }
         } else {
             Log.w(TAG, "Cannot set underlying network, API version " + Build.VERSION.SDK_INT + " < 22");
